@@ -20,42 +20,59 @@ def enough_text_for_edge(edge_size, leftover_text):
 
 def main():
     parser = argparse.ArgumentParser(description='Converts the image to an image of text')
-    parser.add_argument('-i', '--image', help='The image file to be used')
-    parser.add_argument('-t', '--text', help='The text file to be used')
-    parser.add_argument('-o', '--output_location', help='Name of the directory to be used for output')
+    parser.add_argument('-i', '--image', help='The image file to be used', required=True)
+    parser.add_argument('-t', '--text', help='The text file to be used', required=True)
+    parser.add_argument('-o', '--output_location', help='Name of the directory to be used for output', required=True)
     parser.add_argument('-n', '--output_name', help='Name of the file to be used for the text and image file.  Do not '
-                                                    'include the extension')
-    parser.add_argument('-m', '--margin', type=int, help='The number of pixels to add as a margin around the final '
-                                                         'image (default: 0)')
+                                                    'include the extension', required=True)
+    parser.add_argument('-m', '--margin', type=int, default=0, help='The number of pixels to add as a margin around the'
+                                                                    ' final image (default: 0)')
     parser.add_argument('-p', '--preview', action='store_true', help='Preview the image after applying the color '
                                                                      'transformation (default: false)')
+    parser.add_argument('--threshold', type=float, help='The brightness value (float) to which each pixel must be'
+                                                        ' above to have a character drawn to represent it')
+    parser.add_argument('--above', action='store_false', help='When true will paint the pixel if it is above the'
+                                                              ' average brightness or threshold (default: true)')
     parser.add_argument('-l', '--logging', help='Logging level possible values: [DEBUG, INFO, WARNING, ERROR, '
                                                 'CRITICAL] (default: INFO)')
     args = parser.parse_args()
 
     massage_args(args)
 
-    logging.basicConfig(level=logging.DEBUG)
-
-    process(args.image, args.text, args.output_location, args.output_name, args.margin, args.preview)
+    process(args.image, args.text, args.output_location, args.output_name, args.margin, args.preview, args.threshold,
+            args.above)
 
 
 def massage_args(args):
-    args.logging = 'INFO' if args.logging is None else args.logging
+    log_arg = args.logging
+    if log_arg == 'CRITICAL':
+        logging.basicConfig(level=logging.CRITICAL)
+    elif log_arg == 'ERROR':
+        logging.basicConfig(level=logging.ERROR)
+    elif log_arg == 'WARNING':
+        logging.basicConfig(level=logging.WARNING)
+    elif log_arg == 'DEBUG':
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    args.margin = 0 if args.margin < 0 else args.margin
 
 
-def process(image_location, text_location, output, name, margin, preview):
+def process(image_location, text_location, output, name, margin, preview, threshold, is_above):
     logging.info("getting image from [%s]", image_location)
     image = Image.open(image_location).convert("RGBA")
     average_color = get_average_color(image)
+    logging.debug("pictures average color: %s", average_color)
+    logging.debug("pictures average brightness: %s", get_pixel_brightness(average_color))
 
     if preview:
-        generate_preview(image, average_color, output, name)
+        generate_preview(image, average_color, output, name, threshold, is_above)
         sys.exit()
 
     text = get_text(text_location)
-    image = scale_img_to_text(image, text, average_color)
-    text_image = get_text_image(text, image, average_color)
+    image = scale_img_to_text(image, text, average_color, threshold, is_above)
+    text_image = get_text_image(text, image, average_color, threshold, is_above)
     if not os.path.exists(output):
         os.makedirs(output)
     write_to_file(text_image, output + '\\' + name + '.txt')
@@ -85,12 +102,12 @@ def get_average_color(image):
     return temp_image.getpixel((0, 0))
 
 
-def generate_preview(image, average_color, output, name):
+def generate_preview(image, average_color, output, name, threshold, is_above):
     logging.info('generating preview')
     pixels = get_pixels(image)
     new_pixels = []
     for pixel in pixels:
-        if is_pixel_above_average(pixel, average_color):
+        if should_paint_pixel(pixel, average_color, threshold, is_above):
             new_pixels.append((255, 255, 255))
         else:
             new_pixels.append((0, 0, 0))
@@ -101,12 +118,12 @@ def generate_preview(image, average_color, output, name):
     logging.info('saved preview to [%s]', output_file)
 
 
-def scale_img_to_text(image, text, average_color):
+def scale_img_to_text(image, text, average_color, threshold, is_above):
     logging.info("scaling image to match text length")
     logging.debug("original - width: [%s] and height: [%s]", image.size[0], image.size[1])
     image = account_for_font_ratio(image)
     logging.debug("scaled for font ratio - width: [%s] height: [%s]", image.size[0], image.size[1])
-    image = account_for_empty_space(image, text, average_color)
+    image = account_for_empty_space(image, text, average_color, threshold, is_above)
     logging.debug("account for empty space - width: [%s] height: [%s]", image.size[0], image.size[1])
     return image
 
@@ -119,9 +136,9 @@ def account_for_font_ratio(image):
     return image.resize((math.ceil(image.size[0] * font_pixel_ratio), image.size[1]))
 
 
-def account_for_empty_space(image, text, average_color):
+def account_for_empty_space(image, text, average_color, threshold, is_above):
     pixels = get_pixels(image)
-    empty_pixels_count = get_empty_pixel_area(pixels, average_color)
+    empty_pixels_count = get_empty_pixel_area(pixels, average_color, threshold, is_above)
     empty_pixel_ratio = empty_pixels_count / len(pixels)
     text_length = len(text)
     width, height = image.size
@@ -157,16 +174,18 @@ def get_pixels(image):
     return list(image.getdata())
 
 
-def get_empty_pixel_area(pixels, average_color):
+def get_empty_pixel_area(pixels, average_color, threshold, is_above):
     empty_pixel_counter = 0
     for pixel in pixels:
-        if is_pixel_above_average(pixel, average_color):
+        if should_paint_pixel(pixel, average_color, threshold, is_above):
             empty_pixel_counter += 1
     return empty_pixel_counter
 
 
-def is_pixel_above_average(pixel, color):
-    return get_pixel_brightness(pixel) > get_pixel_brightness(color)
+def should_paint_pixel(pixel, average_color, threshold, is_above):
+    color_brightness = threshold if threshold is not None else get_pixel_brightness(average_color)
+    pixel_brightness = get_pixel_brightness(pixel)
+    return pixel_brightness > color_brightness if is_above else pixel_brightness < color_brightness
 
 
 def get_pixel_brightness(pixel):
@@ -174,7 +193,7 @@ def get_pixel_brightness(pixel):
     return math.sqrt(.241 * math.pow(r, 2) + .691 * math.pow(g, 2) + .068 * math.pow(b, 2))
 
 
-def get_text_image(text, image, average_color):
+def get_text_image(text, image, average_color, threshold, is_above):
     logging.info("converting image to text")
     text_image = ""
     width, height = image.size
@@ -183,7 +202,7 @@ def get_text_image(text, image, average_color):
     text_counter = 0
     for pixel in pixels:
         line_counter += 1
-        if is_pixel_above_average(pixel, average_color):
+        if should_paint_pixel(pixel, average_color, threshold, is_above):
             text_image += ' '
         else:
             if text_counter < len(text):
