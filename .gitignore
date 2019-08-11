@@ -3,3 +3,4 @@
 /text
 /final
 /venv
+*__pycache__*

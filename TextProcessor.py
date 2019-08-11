@@ -1,8 +1,9 @@
 import argparse
 import logging
 import os, sys, math
-from PIL import Image, ImageFilter, ImageFont, ImageDraw
-from pip._vendor.msgpack.fallback import xrange
+from PIL import Image, ImageFilter
+
+from text_painter import Painter
 
 
 def is_pixel_below_average(pixel, color):
@@ -76,7 +77,9 @@ def process(image_location, text_location, output, name, margin, preview, thresh
     if not os.path.exists(output):
         os.makedirs(output)
     write_to_file(text_image, output + '\\' + name + '.txt')
-    image = get_image_of_text(text_image, image, margin)
+    Painter.margin = margin
+    Painter.threshold = threshold
+    image = Painter.get_image_of_text(text, image)
     logging.info("saving image to [%s]", output + '\\' + name + '.png')
     image.save(output + '\\' + name + '.png')
     logging.info("processing complete")
@@ -213,7 +216,7 @@ def get_text_image(text, image, average_color, threshold, is_above):
                 break
 
         if line_counter == width:
-            text_image += '\n'
+            # text_image += '\n'
             line_counter = 0
     return text_image
 
@@ -228,20 +231,6 @@ def write_to_file(text_image, text_file):
         sys.exit()
     finally:
         file.close()
-
-
-def get_image_of_text(text_image, image, margin):
-    logging.info('converting text to image')
-    width, height = image.size
-    logging.debug('original width: [%s] height: [%s]', width, height)
-    txt_img = Image.new('RGBA', (width * 9 + margin * 2, math.ceil(height * 19) + margin * 2), (255, 255, 255, 255))
-    logging.debug('scaled for character width: [%s] height: [%s]', txt_img.size[0], txt_img.size[1])
-    fnt = ImageFont.truetype('c:/Windows/Fonts/Arial/LTYPE.TTF', 15)
-    d = ImageDraw.Draw(txt_img)
-    logging.info('painting text to canvas (this could take a while)')
-    d.text((margin, margin), str(text_image), font=fnt, fill=(0, 0, 0, 255))
-    logging.info('painting finished')
-    return txt_img
 
 
 if __name__ == '__main__':
