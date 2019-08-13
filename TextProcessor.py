@@ -1,22 +1,12 @@
 import argparse
 import logging
-import os, sys, math
-from PIL import Image, ImageFilter
+import os
+import sys
 
-from text_painter import Painter
+from PIL import Image, ImageFont
 
-
-def is_pixel_below_average(pixel, color):
-    return get_pixel_brightness(pixel) < get_pixel_brightness(color)
-
-
-def pre_process(image):
-    image.filter(ImageFilter.SMOOTH_MORE)
-    return image
-
-
-def enough_text_for_edge(edge_size, leftover_text):
-    return leftover_text - edge_size >= 0
+from image_processor import DuotoneProcessor
+import TextPainter
 
 
 def main():
@@ -28,20 +18,15 @@ def main():
                                                     'include the extension', required=True)
     parser.add_argument('-m', '--margin', type=int, default=0, help='The number of pixels to add as a margin around the'
                                                                     ' final image (default: 0)')
-    parser.add_argument('-p', '--preview', action='store_true', help='Preview the image after applying the color '
-                                                                     'transformation (default: false)')
-    parser.add_argument('--threshold', type=float, help='The brightness value (float) to which each pixel must be'
-                                                        ' above to have a character drawn to represent it')
-    parser.add_argument('--above', action='store_false', help='When true will paint the pixel if it is above the'
-                                                              ' average brightness or threshold (default: true)')
+    parser.add_argument('-p', '--processor', help='pre-process the image using the given processor')
+    parser.add_argument('-a', '--processor_arguments', nargs='*',
+                        help='a list of arguments to be passed to the processor')
     parser.add_argument('-l', '--logging', help='Logging level possible values: [DEBUG, INFO, WARNING, ERROR, '
                                                 'CRITICAL] (default: INFO)')
-    args = parser.parse_args()
+    args = massage_args(parser.parse_args())
 
-    massage_args(args)
-
-    process(args.image, args.text, args.output_location, args.output_name, args.margin, args.preview, args.threshold,
-            args.above)
+    process(args.image, args.text, args.output_location, args.output_name, args.margin, args.processor,
+            args.processor_arguments)
 
 
 def massage_args(args):
@@ -59,29 +44,42 @@ def massage_args(args):
 
     args.margin = 0 if args.margin < 0 else args.margin
 
+    return args
 
-def process(image_location, text_location, output, name, margin, preview, threshold, is_above):
+
+def process(image_location, text_location, output_location, name, margin, processor, processor_arguments):
+    """
+    Converts an image to a text image where each pixel is replaced by a single character.  By default the image will
+    be turned into a duotone image, but a different processor can be supplied
+
+    Args:
+        image_location: The location of the image
+        text_location: The location of the text
+        output_location: The location to save the new image
+        name: The name used to save the new image (Should not include an extension i.e. jpeg)
+        margin: The number of pixels used to add an empty border around the image.  default: 0
+        processor: The processor used to process the image.  default: DuotoneProcessor
+        processor_arguments: A list of arguments to be passed to the processor
+
+    Returns:
+        An image made out of the text
+    """
     logging.info("getting image from [%s]", image_location)
     image = Image.open(image_location).convert("RGBA")
-    average_color = get_average_color(image)
-    logging.debug("pictures average color: %s", average_color)
-    logging.debug("pictures average brightness: %s", get_pixel_brightness(average_color))
-
-    if preview:
-        generate_preview(image, average_color, output, name, threshold, is_above)
-        sys.exit()
-
     text = get_text(text_location)
-    image = scale_img_to_text(image, text, average_color, threshold, is_above)
-    text_image = get_text_image(text, image, average_color, threshold, is_above)
-    if not os.path.exists(output):
-        os.makedirs(output)
-    write_to_file(text_image, output + '\\' + name + '.txt')
-    Painter.margin = margin
-    Painter.threshold = threshold
-    image = Painter.get_image_of_text(text, image)
-    logging.info("saving image to [%s]", output + '\\' + name + '.png')
-    image.save(output + '\\' + name + '.png')
+    # TODO: pass font location as an argument
+    font = ImageFont.truetype('c:/Windows/Fonts/Arial/LTYPE.TTF', 15)
+
+    # TODO: use the supplied processor
+    image = DuotoneProcessor.process(image, processor_arguments)
+
+    image = TextPainter.get_text_image(text, image, font, margin=(margin, margin))
+
+    if not os.path.exists(output_location):
+        os.makedirs(output_location)
+
+    logging.info("saving image to [%s]", output_location + '\\' + name + '.png')
+    image.save(output_location + '\\' + name + '.png')
     logging.info("processing complete")
 
 
@@ -98,127 +96,6 @@ def get_text(filename):
     finally:
         file.close()
     return text
-
-
-def get_average_color(image):
-    temp_image = image.resize((1, 1), Image.ANTIALIAS)
-    return temp_image.getpixel((0, 0))
-
-
-def generate_preview(image, average_color, output, name, threshold, is_above):
-    logging.info('generating preview')
-    pixels = get_pixels(image)
-    new_pixels = []
-    for pixel in pixels:
-        if should_paint_pixel(pixel, average_color, threshold, is_above):
-            new_pixels.append((255, 255, 255))
-        else:
-            new_pixels.append((0, 0, 0))
-    preview = Image.new(image.mode, image.size)
-    preview.putdata(new_pixels)
-    output_file = output + '\\' + name + '_preview.png'
-    preview.save(output_file)
-    logging.info('saved preview to [%s]', output_file)
-
-
-def scale_img_to_text(image, text, average_color, threshold, is_above):
-    logging.info("scaling image to match text length")
-    logging.debug("original - width: [%s] and height: [%s]", image.size[0], image.size[1])
-    image = account_for_font_ratio(image)
-    logging.debug("scaled for font ratio - width: [%s] height: [%s]", image.size[0], image.size[1])
-    image = account_for_empty_space(image, text, average_color, threshold, is_above)
-    logging.debug("account for empty space - width: [%s] height: [%s]", image.size[0], image.size[1])
-    return image
-
-
-def account_for_font_ratio(image):
-    """Resize image so that when all 'square' pixels are converted to rectangular characters the size of the image
-    will stay the same
-    """
-    font_pixel_ratio = 19 / 9
-    return image.resize((math.ceil(image.size[0] * font_pixel_ratio), image.size[1]))
-
-
-def account_for_empty_space(image, text, average_color, threshold, is_above):
-    pixels = get_pixels(image)
-    empty_pixels_count = get_empty_pixel_area(pixels, average_color, threshold, is_above)
-    empty_pixel_ratio = empty_pixels_count / len(pixels)
-    text_length = len(text)
-    width, height = image.size
-    logging.debug('text length: [%s] original width: [%s] height: [%s] empty pixel ratio: [%s]', text_length, width,
-                  height, empty_pixel_ratio)
-
-    while True:
-        scalar = math.sqrt((width * height) / (text_length + (width * height * empty_pixel_ratio)))
-        logging.debug("scaling by [%s]", scalar)
-        width = math.ceil(width / scalar)
-        height = math.ceil(height / scalar)
-        logging.debug('new width: [%s] height: [%s]', width, height)
-
-        new_area = width * height
-        colored_pixels = new_area - (new_area * empty_pixel_ratio)
-        text_difference = text_length - colored_pixels
-        logging.debug('text difference: [%s]', text_difference)
-        if math.fabs(text_difference) < width:
-            break
-
-    if text_difference > 0:
-        if width > height:
-            logging.debug('adding 1 pixel to the height to account for missing text')
-            height += 1
-        else:
-            logging.debug('adding 1 pixel to the width to account for missing text')
-            width += 1
-
-    return image.resize((width, height))
-
-
-def get_pixels(image):
-    return list(image.getdata())
-
-
-def get_empty_pixel_area(pixels, average_color, threshold, is_above):
-    empty_pixel_counter = 0
-    for pixel in pixels:
-        if should_paint_pixel(pixel, average_color, threshold, is_above):
-            empty_pixel_counter += 1
-    return empty_pixel_counter
-
-
-def should_paint_pixel(pixel, average_color, threshold, is_above):
-    color_brightness = threshold if threshold is not None else get_pixel_brightness(average_color)
-    pixel_brightness = get_pixel_brightness(pixel)
-    return pixel_brightness > color_brightness if is_above else pixel_brightness < color_brightness
-
-
-def get_pixel_brightness(pixel):
-    r, g, b, x = pixel
-    return math.sqrt(.241 * math.pow(r, 2) + .691 * math.pow(g, 2) + .068 * math.pow(b, 2))
-
-
-def get_text_image(text, image, average_color, threshold, is_above):
-    logging.info("converting image to text")
-    text_image = ""
-    width, height = image.size
-    pixels = get_pixels(image)
-    line_counter = 0
-    text_counter = 0
-    for pixel in pixels:
-        line_counter += 1
-        if should_paint_pixel(pixel, average_color, threshold, is_above):
-            text_image += ' '
-        else:
-            if text_counter < len(text):
-                text_image += text[text_counter]
-                text_counter += 1
-            else:
-                logging.warning("more pixels [%s] than text [%s]", len(pixels), len(text))
-                break
-
-        if line_counter == width:
-            # text_image += '\n'
-            line_counter = 0
-    return text_image
 
 
 def write_to_file(text_image, text_file):

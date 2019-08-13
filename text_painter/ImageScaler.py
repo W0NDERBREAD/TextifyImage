@@ -136,8 +136,8 @@ def main():
     parser = argparse.ArgumentParser(description='Scales an image to fit the size of the text')
     parser.add_argument('-t', '--text_location', help='The text file to be used', required=True)
     parser.add_argument('-i', '--image_location', help='The image file to be used', required=True)
-    parser.add_argument('-x', '--font_width', default=9, help='The width of the font in pixels')
-    parser.add_argument('-y', '--font_height', default=19, help='The height of the font in pixels')
+    parser.add_argument('-x', '--font_width', default=9, type=int, help='The width of the font in pixels')
+    parser.add_argument('-y', '--font_height', default=19, type=int, help='The height of the font in pixels')
     parser.add_argument('-b', '--brightness_threshold', type=float, default=250.0,
                         help='The brightness value (float) to which each pixel must be below to have a character '
                              'drawn to represent it')

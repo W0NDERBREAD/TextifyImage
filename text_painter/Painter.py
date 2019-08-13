@@ -23,7 +23,7 @@ def get_image_of_text(text, image, font, font_size: (int, int) = (9, 19), margin
         An image made of text
     """
     logging.info('converting text to image')
-    logging.info('using margin: [%s], threshold: [%s]', margin, threshold)
+    logging.info('using margin: [%s], threshold: [%s], font_size: [%s]', margin, threshold, font_size)
     width, height = image.size
     text_size = len(text)
     logging.debug('original width: [%s] height: [%s]', width, height)
@@ -99,10 +99,10 @@ def main():
     parser = argparse.ArgumentParser(description='Scales an image to fit the size of the text')
     parser.add_argument('-t', '--text_location', help='The text file to be used', required=True)
     parser.add_argument('-i', '--image_location', help='The image file to be used', required=True)
-    parser.add_argument('--x_margin', default=0, help='The width of the font in pixels')
-    parser.add_argument('--y_margin', default=0, help='The height of the font in pixels')
-    parser.add_argument('--font_width', default=9, help='The width of the font in pixels')
-    parser.add_argument('--font_height', default=19, help='The height of the font in pixels')
+    parser.add_argument('--x_margin', default=0, type=int, help='The number of pixels to add as a horizontal border')
+    parser.add_argument('--y_margin', default=0, type=int, help='The number of pixels to add as a vertical border')
+    parser.add_argument('--font_width', default=9, type=int, help='The width of the font in pixels')
+    parser.add_argument('--font_height', default=19, type=int, help='The height of the font in pixels')
     parser.add_argument('-b', '--brightness_threshold', type=float, default=250.0,
                         help='The brightness value (float) to which each pixel must be below to have a character '
                              'drawn to represent it')
