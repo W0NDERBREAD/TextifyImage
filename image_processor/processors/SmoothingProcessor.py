@@ -21,7 +21,7 @@ class SmoothingProcessor(Processor):
                 smooth_level: Whether to use more smoothing.  default: False
 
         Returns:
-            A duotone image
+            A smoothed image
         """
         default_args = [False]
         more_smoothing = Processor.get_arguments(self, arguments, default_args)
