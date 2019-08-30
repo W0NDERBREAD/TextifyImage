@@ -1,11 +1,11 @@
 import argparse
+import importlib
 import logging
 import os
 import sys
 
 from PIL import Image, ImageFont
 
-from image_processor import DuotoneProcessor
 import TextPainter
 
 
@@ -18,7 +18,8 @@ def main():
                                                     'include the extension', required=True)
     parser.add_argument('-m', '--margin', type=int, default=0, help='The number of pixels to add as a margin around the'
                                                                     ' final image (default: 0)')
-    parser.add_argument('-p', '--processor', help='pre-process the image using the given processor')
+    parser.add_argument('-p', '--processor', default='DuotoneProcessor',
+                        help='pre-process the image using the given processor')
     parser.add_argument('-a', '--processor_arguments', nargs='*',
                         help='a list of arguments to be passed to the processor')
     parser.add_argument('-l', '--logging', help='Logging level possible values: [DEBUG, INFO, WARNING, ERROR, '
@@ -47,7 +48,7 @@ def massage_args(args):
     return args
 
 
-def process(image_location, text_location, output_location, name, margin, processor, processor_arguments):
+def process(image_location, text_location, output_location, name, margin, processor_name, processor_arguments):
     """
     Converts an image to a text image where each pixel is replaced by a single character.  By default the image will
     be turned into a duotone image, but a different processor can be supplied
@@ -58,7 +59,8 @@ def process(image_location, text_location, output_location, name, margin, proces
         output_location: The location to save the new image
         name: The name used to save the new image (Should not include an extension i.e. jpeg)
         margin: The number of pixels used to add an empty border around the image.  default: 0
-        processor: The processor used to process the image.  default: DuotoneProcessor
+        processor_name: The processor used to process the image.  Must be located in image_processor/processors and must
+            extend image_processor.Processor.py default: DuotoneProcessor
         processor_arguments: A list of arguments to be passed to the processor
 
     Returns:
@@ -70,8 +72,10 @@ def process(image_location, text_location, output_location, name, margin, proces
     # TODO: pass font location as an argument
     font = ImageFont.truetype('c:/Windows/Fonts/Arial/LTYPE.TTF', 15)
 
-    # TODO: use the supplied processor
-    image = DuotoneProcessor.process(image, processor_arguments)
+    processor_module = importlib.import_module("image_processor.processors." + processor_name)
+    processor = getattr(processor_module, processor_name)
+
+    image = processor.process(processor, image, processor_arguments)
 
     image = TextPainter.get_text_image(text, image, font, margin=(margin, margin))
 
