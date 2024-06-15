@@ -1,6 +1,6 @@
 import logging
 
-from PIL import ImageFilter
+from PIL import ImageFilter # type: ignore
 
 from image_processor.Processor import Processor
 

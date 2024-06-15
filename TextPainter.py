@@ -2,12 +2,12 @@ import argparse
 import logging
 import sys
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageFont # type: ignore
 
 from text_painter import ImageScaler, Painter
 
 
-def get_text_image(text, image, font, font_size: (int, int) = (9, 19), margin: (int, int) = (0, 0),
+def get_text_image(text, image, font, font_size: tuple[int, int] = (9, 19), margin: tuple[int, int] = (0, 0),
                    threshold: float = 250.0):
     """
     Creates an image where each pixel of a picture is represented by a single character from the text.  The color of

@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageFont # type: ignore
 
 import TextPainter
 

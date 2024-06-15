@@ -1,7 +1,7 @@
 import logging
 import math
 
-from PIL import Image
+from PIL import Image # type: ignore
 
 from image_processor.Processor import Processor
 
@@ -53,7 +53,7 @@ class DuotoneProcessor(Processor):
 
     @staticmethod
     def get_average_color(image):
-        temp_image = image.resize((1, 1), Image.ANTIALIAS)
+        temp_image = image.resize((1, 1), Image.LANCZOS)
         return temp_image.getpixel((0, 0))
 
     def should_paint_pixel(self, pixel, average_color, threshold, is_above):
