@@ -1,4 +1,4 @@
-# TextProcessor
+# TextifyImage
 
 A Python project to convert images to be made up of characters from a given text file.
 
