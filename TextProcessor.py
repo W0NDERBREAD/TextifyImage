@@ -18,6 +18,7 @@ def main():
     parser.add_argument('-f', '--font', nargs=3, default=[os.path.join('.', 'fonts', 'JetBrainsMono', '2.304', 'fonts', 'ttf','JetBrainsMono-Regular.ttf'), 9, 15], help='Font to be used.  Must include Filename of a TrueType (.ttf) font, font width in pixels when rendered at 15px, and height when rendered at 15px (which should be 15). (default: (JetBrainsMono-Regular.ttf, 9, 15))')
     parser.add_argument('-m', '--margin', type=int, nargs=2, default=[0,0], help='The number of pixels to add as a margin around the final image. Must include both a width and a height (default: 0 0)')
     parser.add_argument('-c', '--char_threshold', type=float, default=250.0, help='A brightness threshold between 0 (black) and 255 (white).  Pixels below this threshold wont be replaced by a character and will be left blank.  (default: 250)')
+    parser.add_argument('-b', '--background_color', type=int, nargs=3, default=[255,255,255], help='The RGB values of the color to use for the background of the image (default: 255 255 255)')
     parser.add_argument('-p', '--processor', default='DuotoneProcessor',
                         help='pre-process the image using the given processor')
     parser.add_argument('-a', '--processor_arguments', nargs='*',
@@ -32,7 +33,7 @@ def main():
     text = get_text(args.text)
     font = (ImageFont.truetype(args.font[0], 15), int(args.font[1]), int(args.font[2]))
 
-    image = process(image, text, font, (args.margin[0], args.margin[1]), float(args.char_threshold), args.processor, args.processor_arguments, args.processor_only)
+    image = process(image, text, font, (args.margin[0], args.margin[1]), float(args.char_threshold), args.background_color, args.processor, args.processor_arguments, args.processor_only)
 
     logging.info("saving image to [%s]", args.output)
     image.save(args.output)
@@ -45,7 +46,7 @@ def normalize_args(args):
     return args
 
 
-def process(image, text, font, margin, char_threshold, processor_name, processor_arguments, processor_only):
+def process(image, text, font, margin, char_threshold, background_color, processor_name, processor_arguments, processor_only):
     """
     Converts an image to a text image where each pixel is replaced by a single character.  By default the image will
     be turned into a duotone image, but a different processor can be supplied.
@@ -56,6 +57,7 @@ def process(image, text, font, margin, char_threshold, processor_name, processor
         font:  A tuple containing (An ImageFont (should be monospaced), font pixel width, font pixel height).
         margin: A tuple (margin width, margin height) containing the pixel margin to add a border of the image.
         char_threshold: A brightness threshold between 0 (black) and 255 (white).  Pixels below this threshold wont be replaced by a character and will be left blank.
+        background_color: A tuple containing the RGB values to be used for the background color of the image.
         processor_name: The processor used to process the image.  Must be located in image_processor/processors and must
             extend image_processor.Processor.py. default: DuotoneProcessor
         processor_arguments: A list of arguments to be passed to the processor.
@@ -74,7 +76,7 @@ def process(image, text, font, margin, char_threshold, processor_name, processor
     image = processor.process(processor, image, processor_arguments)
 
     if not processor_only:
-        image = TextPainter.get_text_image(text, image, font, margin, char_threshold)
+        image = TextPainter.get_text_image(text, image, font, margin, char_threshold, background_color)
 
     return image
 
