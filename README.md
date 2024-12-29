@@ -14,6 +14,7 @@ Output              | `--output`              | `-o`       | True     | None    
 Font                | `--font`                | `-f`       | False    | JetBrainsMono-Regular.ttf 9 15 | 3 fields to use a custom font - A path to the font (must be TrueType .ttf font), width in pixels of the font, height in pixels of the font
 Margin              | `--margin`              | `-m`       | False    | 0 0                            | 2 fields to define margins for the converted image - The number of pixels for the left and right margin, the number of pixels for the top and bottom margin
 Character Threshold | `--char_threshold`      | `-c`       | False    | 250                            | A brightness threshold between 0 (black) and 255 (white). Pixels below this threshold won't be replaced by a character and will be left blank.
+Background Color    | `--background_color`    | `-b`       | False    | 255 255 255 (white)            | The RGB values of the color to use for the background of the image
 Processor           | `--processor`           | `-p`       | False    | `DuotoneProcessor`             | The name of a Processor used to pre-process the image before converting it to characters.  Processors must be stored in `/image_processor/processors` and must extend image_processor.Processor.py
 Processor Arguments | `--processor_arguments` | `-a`       | False    | None                           | Arguments to be passed to the given Processor. All processor fields have default values and can be safely omitted. Use `None` to omit an argument that is not the last argument.
 Processor Only      | `--processor_only`      |            | False    | False                          | Only runs the processor and does not convert the final image to text.  Useful for quickly previewing processor flags or debugging processors
@@ -44,7 +45,7 @@ python .\TextProcessor.py -i .\examples\images\AAiW-white-rabbit.png -t .\exampl
 An example using all of the fields
 
 ```shell
-python .\TextProcessor.py -i .\examples\images\AAiW-white-rabbit.png -t .\examples\text\AAiW.txt -o .\examples\outputs\AAiW-all.png -f .\fonts\JetBrainsMono\2.304\fonts\ttf\JetBrainsMono-Bold.ttf 9 15 -m 50 50 -c 255 -p DuotoneProcessor -a 237,185,109 138,229,253 255
+python .\TextProcessor.py -i .\examples\images\AAiW-white-rabbit.png -t .\examples\text\AAiW.txt -o .\examples\outputs\AAiW-all.png -f .\fonts\JetBrainsMono\2.304\fonts\ttf\JetBrainsMono-Bold.ttf 9 15 -m 50 50 -c 255 -b 24 62 12 -p DuotoneProcessor -a 237,185,109 138,229,253 255
 ```
 
 ### Processor Only

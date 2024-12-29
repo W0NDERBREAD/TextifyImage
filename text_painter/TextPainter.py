@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw  # type: ignore
 from utils.Pixels import get_pixels, should_paint_pixel
 
 
-def get_text_image(text, image, font, margin, threshold):
+def get_text_image(text, image, font, margin, threshold, background_color):
     """
     Creates an image where each pixel of the image is represented by a single character from the text.  The color of
     the pixel is preserved and only pixels with a brightness above the given threshold will not be represented by a
@@ -18,6 +18,7 @@ def get_text_image(text, image, font, margin, threshold):
         font: A tuple containing (An ImageFont (should be monospaced), font pixel width, font pixel height).
         margin: A tuple (margin width, margin height) containing the pixel margin to add a border of the image.
         threshold: The value representing the maximum brightness that will be represented by text.
+        background_color: A tuple containing the RGB values to be used for the background color of the image.
 
     Returns:
         An image made of text.
@@ -31,7 +32,7 @@ def get_text_image(text, image, font, margin, threshold):
     final_image = Image.new('RGBA',
                             (width * font[1] + margin[0] * 2,
                              math.ceil(height * font[2]) + margin[1] * 2),
-                            (255, 255, 255, 255))
+                            (background_color[0], background_color[1], background_color[2], 255))
     s_width, s_height = final_image.size
 
     logging.debug(
