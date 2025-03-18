@@ -41,17 +41,24 @@ def get_text_image(text, image, font, margin, threshold, background_color):
     x, y = margin
     pixel_count, text_count = (0, 0)
 
+    white_pixels = 0
+
     logging.info('painting text to canvas (this could take a while)')
     for pixel in get_pixels(image):
         if should_paint_pixel(pixel, threshold):
             d.text((x, y), text[text_count %
                    text_size], font=font[0], fill=pixel)
             text_count += 1
+        else:
+            white_pixels += 1
         x += font[1]
         pixel_count += 1
         if pixel_count % width == 0:
             x = margin[0]
             y += font[2]
+
+    logging.debug(
+        'painter - painted_pixels: [%s] white_pixels: [%s]', text_count, white_pixels)
 
     logging.info('painting finished')
     return final_image

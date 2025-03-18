@@ -4,11 +4,20 @@ import logging
 
 from PIL import Image
 
+
 class Processor:
     """Process an image"""
 
+    def __init__(self, image, arguments):
+        """Init method called by TextProcessor to setup processor variables.  This method needs to be implemented by custom processors."""
+        pass
+
     def process(self, image, arguments):
         """Method called by TextProcessor to process the given image.  This method needs to be implemented by custom processors."""
+        pass
+
+    def should_paint_pixel(self, pixel):
+        """Method called during image scaling to determine if a pixel will paint a character or skip.  This method needs to be implemented by custom processors."""
         pass
 
     def get_arguments(self, arguments, defaults):
@@ -18,7 +27,8 @@ class Processor:
 
         processed_arguments = []
         for i in range(len(defaults)):
-            processed_arguments.append(self._default_or_argument(arguments[i], defaults[i]))
+            processed_arguments.append(
+                self._default_or_argument(arguments[i], defaults[i]))
 
         return processed_arguments
 
