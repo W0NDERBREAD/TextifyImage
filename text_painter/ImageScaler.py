@@ -2,12 +2,14 @@ import argparse
 import logging
 import math
 import sys
+import pprint
 
 from PIL import Image
 
 from utils.Pixels import should_paint_pixel
 
-def scale_image_to_text(text, image, font_size, threshold):
+
+def scale_image_to_text(text, image, font_size, should_paint_pixel_func):
     """
     Returns an image that has been scaled to account for the font ratio and so that every character of the text can
     be represented by a single pixel above the given threshold.
@@ -16,13 +18,13 @@ def scale_image_to_text(text, image, font_size, threshold):
         text: The text to scale to.
         image: The image to be scaled.
         font_size: The (x, y) pixel size of the font where x is the width and y is the height.
-        threshold: The value representing the maximum brightness that will be represented by text.
+        should_paint_pixel_func: The method should be implemented by the processor and is used to determine if a pixel will result in a character being painted or skipped.
 
     Returns:
         An image scaled so every character of text can be represented by a single pixel.
     """
     logging.info("scaling image to match text length")
-    logging.info('using font_size: [%s], threshold: [%s]', font_size, threshold)
+    logging.info('using font_size: [%s]', font_size)
     logging.debug("original - width: [%s] height: [%s] pixels: [%s]: text[%s]", image.size[0], image.size[1],
                   image.size[0] * image.size[1], len(text))
 
@@ -30,7 +32,8 @@ def scale_image_to_text(text, image, font_size, threshold):
     logging.debug("scaled for font ratio - width: [%s] height: [%s] pixels: [%s]", image.size[0], image.size[1],
                   image.size[0] * image.size[1])
 
-    image = scale_pixel_count_to_text_count(image, text, threshold)
+    image = scale_pixel_count_to_text_count(
+        image, text, should_paint_pixel_func)
     logging.debug("account for empty space - width: [%s] height: [%s]: pixels: [%s]", image.size[0], image.size[1],
                   image.size[0] * image.size[1])
 
@@ -46,61 +49,95 @@ def scale_for_font_ratio(image, font_size: tuple[int, int]):
     return image.resize((math.ceil(image.size[0] * font_pixel_ratio), image.size[1]))
 
 
-def scale_pixel_count_to_text_count(image, text, threshold):
+def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func):
     """
-    Resize the image so every pixel of the image can be represented by a single character from the text.  A pixel that 
+    Resize the image so every pixel of the image can be represented by a single character from the text.  A pixel that
     is below the given brightness threshold will be skipped and not represented by a character.
 
     Returns a resized image.
     """
-    pixels = list(image.getdata())
-    empty_pixels_count = get_empty_pixel_count(pixels, threshold)
-    empty_pixel_ratio = empty_pixels_count / len(pixels)
     text_length = len(text)
-    width, height = image.size
-    logging.debug('text length: [%s] original width: [%s] height: [%s] empty pixel ratio: [%s]', text_length, width,
-                  height, empty_pixel_ratio)
+    max_loop = 40
+    counter = 0
+    margin = text_length * .0001
+    seen = {}
 
-    # scale width/hight up or down until all of the characters can be represented by a single pixel above the brightness threshold
-    # It's unlikely that the amount of charaters will match exactly so stop if the texts runs out on the last line or if adding
-    # one more line would use up the rest of the text.
+    logging.debug('text length: [%s]', text_length)
+
+    # scale width/hight up or down until all of the characters can be represented by a single painted pixel as determined by the processors should_paint_pixel_func
+    # It's unlikely that the amount of charaters will match exactly so get as close to an exact match without cutting off any characters.
     while True:
-        scalar = math.sqrt((width * height) / (text_length + (width * height * empty_pixel_ratio)))
-        logging.debug("scaling by [%s]", scalar)
-        old_width = width
-        old_height = height
-        width = math.ceil(width / scalar)
-        height = math.ceil(height / scalar)
-        logging.debug('new width: [%s] height: [%s]', width, height)
+        counter += 1
+        colored_pixel_count, width, height, diff = get_image_dimensions(
+            image, should_paint_pixel_func, text_length, counter, margin)
+        seen[str(width) + ',' + str(height)] = diff
 
-        new_area = width * height
-        colored_pixels = new_area - (new_area * empty_pixel_ratio)
-        text_difference = text_length - colored_pixels
-        logging.debug('text difference: [%s]', text_difference)
-        if math.fabs(text_difference) < width or (old_width == width and old_height == height):
+        if counter > max_loop or (text_length < colored_pixel_count and abs(diff) < margin):
             break
 
-    # Add one extra line if there is some text left over
-    if text_difference > 0:
-        if width > height:
-            logging.debug('adding 1 pixel to the height to account for missing text')
-            height += 1
-        else:
-            logging.debug('adding 1 pixel to the width to account for missing text')
-            width += 1
+        scalar = math.sqrt(abs(text_length / colored_pixel_count))
+        logging.debug("scaling by [%s]", scalar)
+        new_width = math.ceil(width * scalar)
+        new_height = math.ceil(height * scalar)
+        logging.debug(
+            'new width: [%s] new height: [%s]', new_width, new_height)
 
-    logging.debug("unpainted pixels: [%s] painted pixels: [%s]", empty_pixels_count,
-                  image.size[0] * image.size[1] - empty_pixels_count)
+        if str(new_width) + ',' + str(new_height) in seen:
+            new_width += int(1 * diff / abs(diff))
+            new_height += int(1 * diff / abs(diff))
+            if str(new_width) + ',' + str(new_height) in seen:
+                break
+            logging.debug(
+                'single pixel adjusted new width: [%s] and new height: [%s]', new_width, new_height)
 
-    return image.resize((width, height))
+        image = image.resize((new_width, new_height))
+
+    filtered = {k: v for k, v in seen.items() if v < 0}
+    closest = max(filtered, key=lambda k: filtered[k])
+    logging.debug("closeset looping attempt: [%s]", str(closest))
+
+    # Allow for the image ratio to be off by one pixel in either direction to see if we can get a little closer
+    closest_width = int(closest.split(",")[0])
+    closest_height = int(closest.split(",")[1])
+
+    image = image.resize((closest_width+1, closest_height))
+    colored_pixel_count, width, height, diff = get_image_dimensions(
+        image, should_paint_pixel_func, text_length, counter, margin)
+    seen[str(width) + ',' + str(height)] = diff
+
+    image = image.resize((closest_width, closest_height+1))
+    colored_pixel_count, width, height, diff = get_image_dimensions(
+        image, should_paint_pixel_func, text_length, counter, margin)
+    seen[str(width) + ',' + str(height)] = diff
+
+    filtered = {k: v for k, v in seen.items() if v < 0}
+    closest = max(filtered, key=lambda k: filtered[k])
+    logging.debug("closeset after ratio wiggle: [%s]", str(closest))
+    closest_width = int(closest.split(",")[0])
+    closest_height = int(closest.split(",")[1])
+
+    return image.resize((closest_width, closest_height))
 
 
-def get_empty_pixel_count(pixels, threshold):
+def get_image_dimensions(image, should_paint_pixel_func, text_length, counter, margin):
+    pixels = list(image.getdata())
+    colored_pixel_count = get_colored_pixel_count(
+        pixels, should_paint_pixel_func)
+    width, height = image.size
+    diff = text_length - colored_pixel_count
+
+    logging.debug('\n\n[%s] - width: [%s] height: [%s] pixels: [%s] colored_pixels: [%s] text: [%s] diff: [%s] margin: [%s]',
+                  counter, width, height, len(pixels), colored_pixel_count, text_length, diff, margin)
+
+    return colored_pixel_count, width, height, diff
+
+
+def get_colored_pixel_count(pixels, should_paint_pixel_func):
     """
     Returns the number of pixels that should not be painted with a character.  A pixel shouldn't be painted if it's brightness falls below the given threshold.
     """
-    empty_pixel_counter = 0
+    count = 0
     for pixel in pixels:
-        if not should_paint_pixel(pixel, threshold):
-            empty_pixel_counter += 1
-    return empty_pixel_counter
+        if should_paint_pixel_func(pixel):
+            count += 1
+    return count

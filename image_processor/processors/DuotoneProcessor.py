@@ -14,9 +14,8 @@ class DuotoneProcessor(Processor):
         threshold is the average color of the picture, the primary color is black and the secondary color is white.
     """
 
-    def process(self, image, arguments):
-        """
-        Processes an image into a duotone image.
+    def __init__(self, image, arguments):
+        """Initialize the DuotoneProcessor.
 
         Args:
             image: The image to process.
@@ -25,27 +24,43 @@ class DuotoneProcessor(Processor):
                 primary_color: The RGB value of the primary color. default: (0, 0, 0)
                 secondary_color: The RGB value of the secondary color. default: (255, 255, 255)
                 threshold: Pixels with a brightness below threshold will be considered primary. default: average color brightness of image
+        """
+        default_args = [(0, 0, 0), (255, 255, 255),
+                        get_pixel_brightness(self._get_average_color(image))]
+        self.primary_color, self.secondary_color, self.threshold = self.get_arguments(
+            arguments, default_args)
+        self.image = image
+
+    def process(self):
+        """
+        Processes an image into a duotone image.
 
         Returns:
             A duotone image
         """
-        default_args = [(0, 0, 0), (255, 255, 255),
-                        get_pixel_brightness(self._get_average_color(image))]
-        primary_color, secondary_color, threshold = self.get_arguments(
-            self, arguments, default_args)
         logging.info('processing image using [%s] with arguments - threshold: [%s] primary_color: [%s] '
-                     'secondary_color: [%s]', __name__, threshold, primary_color, secondary_color)
+                     'secondary_color: [%s]', __name__, self.threshold, self.primary_color, self.secondary_color)
 
         new_pixels = []
-        for pixel in get_pixels(image):
-            if self._is_primary_color(pixel, threshold):
-                new_pixels.append(primary_color)
+        colored_pixel = white_pixel = 0
+        for pixel in get_pixels(self.image):
+            if self._is_primary_color(pixel, self.threshold):
+                new_pixels.append(self.primary_color)
+                colored_pixel += 1
             else:
-                new_pixels.append(secondary_color)
-        processed_image = Image.new(image.mode, image.size)
+                new_pixels.append(self.secondary_color)
+                white_pixel += 1
+        processed_image = Image.new(self.image.mode, self.image.size)
         processed_image.putdata(new_pixels)
 
-        return processed_image
+        logging.debug(
+            'processor - colored_pixel: [%s] white_pixel: [%s]', colored_pixel, white_pixel)
+
+        self.image = processed_image
+
+    def should_paint_pixel(self, pixel):
+        """Method called during image scaling to determine if a pixel will paint a character or skip.  This method needs to be implemented by custom processors."""
+        return self._is_primary_color(pixel, self.threshold)
 
     @staticmethod
     def _get_average_color(image):

@@ -11,7 +11,7 @@ Name                | Flag                    | Short Flag | Required | Default 
 Image               | `--image`               | `-i`       | True     | None                           | A path to the image to convert
 Text                | `--text`                | `-t`       | True     | None                           | A path to the text to convert.  Should be a plain .txt file
 Output              | `--output`              | `-o`       | True     | None                           | A path to the file to save the converted image to
-Font                | `--font`                | `-f`       | False    | JetBrainsMono-Regular.ttf 9 15 | 3 fields to use a custom font - A path to the font (must be TrueType .ttf font), width in pixels of the font, height in pixels of the font
+Font                | `--font`                | `-f`       | False    | JetBrainsMono-Regular.ttf 8 14 | 3 fields to use a custom font - A path to the font (must be TrueType .ttf font), width in pixels of the font, height in pixels of the font
 Margin              | `--margin`              | `-m`       | False    | 0 0                            | 2 fields to define margins for the converted image - The number of pixels for the left and right margin, the number of pixels for the top and bottom margin
 Character Threshold | `--char_threshold`      | `-c`       | False    | 250                            | A brightness threshold between 0 (black) and 255 (white). Pixels below this threshold won't be replaced by a character and will be left blank.
 Background Color    | `--background_color`    | `-b`       | False    | 255 255 255 (white)            | The RGB values of the color to use for the background of the image
