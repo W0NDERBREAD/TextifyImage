@@ -3,7 +3,7 @@ import math
 
 from PIL import Image, ImageDraw  # type: ignore
 
-from utils.Pixels import get_pixels, should_paint_pixel
+from utils.Pixels import get_pixels, brightness_less_than_threshold
 
 
 def get_text_image(text, image, font, margin, threshold, background_color):
@@ -45,7 +45,7 @@ def get_text_image(text, image, font, margin, threshold, background_color):
 
     logging.info('painting text to canvas (this could take a while)')
     for pixel in get_pixels(image):
-        if should_paint_pixel(pixel, threshold):
+        if brightness_less_than_threshold(pixel, threshold):
             d.text((x, y), text[text_count %
                    text_size], font=font[0], fill=pixel)
             text_count += 1

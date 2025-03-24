@@ -6,10 +6,10 @@ import pprint
 
 from PIL import Image
 
-from utils.Pixels import should_paint_pixel
+from utils.Pixels import brightness_less_than_threshold
 
 
-def scale_image_to_text(text, image, font_size, should_paint_pixel_func):
+def scale_image_to_text(text, image, font_size, should_paint_pixel_func, min_threshold):
     """
     Returns an image that has been scaled to account for the font ratio and so that every character of the text can
     be represented by a single pixel above the given threshold.
@@ -33,7 +33,7 @@ def scale_image_to_text(text, image, font_size, should_paint_pixel_func):
                   image.size[0] * image.size[1])
 
     image = scale_pixel_count_to_text_count(
-        image, text, should_paint_pixel_func)
+        image, text, should_paint_pixel_func, min_threshold)
     logging.debug("account for empty space - width: [%s] height: [%s]: pixels: [%s]", image.size[0], image.size[1],
                   image.size[0] * image.size[1])
 
@@ -49,7 +49,7 @@ def scale_for_font_ratio(image, font_size: tuple[int, int]):
     return image.resize((math.ceil(image.size[0] * font_pixel_ratio), image.size[1]))
 
 
-def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func):
+def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func, min_threshold):
     """
     Resize the image so every pixel of the image can be represented by a single character from the text.  A pixel that
     is below the given brightness threshold will be skipped and not represented by a character.
@@ -69,7 +69,7 @@ def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func):
     while True:
         counter += 1
         colored_pixel_count, width, height, diff = get_image_dimensions(
-            image, should_paint_pixel_func, text_length, counter, margin)
+            image, should_paint_pixel_func, text_length, counter, margin, min_threshold)
         seen[str(width) + ',' + str(height)] = diff
 
         if counter > max_loop or (text_length < colored_pixel_count and abs(diff) < margin):
@@ -77,8 +77,8 @@ def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func):
 
         scalar = math.sqrt(abs(text_length / colored_pixel_count))
         logging.debug("scaling by [%s]", scalar)
-        new_width = math.ceil(width * scalar)
-        new_height = math.ceil(height * scalar)
+        new_width = round(width * scalar)
+        new_height = round(height * scalar)
         logging.debug(
             'new width: [%s] new height: [%s]', new_width, new_height)
 
@@ -102,12 +102,12 @@ def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func):
 
     image = image.resize((closest_width+1, closest_height))
     colored_pixel_count, width, height, diff = get_image_dimensions(
-        image, should_paint_pixel_func, text_length, counter, margin)
+        image, should_paint_pixel_func, text_length, counter, margin, min_threshold)
     seen[str(width) + ',' + str(height)] = diff
 
     image = image.resize((closest_width, closest_height+1))
     colored_pixel_count, width, height, diff = get_image_dimensions(
-        image, should_paint_pixel_func, text_length, counter, margin)
+        image, should_paint_pixel_func, text_length, counter, margin, min_threshold)
     seen[str(width) + ',' + str(height)] = diff
 
     filtered = {k: v for k, v in seen.items() if v < 0}
@@ -119,10 +119,10 @@ def scale_pixel_count_to_text_count(image, text, should_paint_pixel_func):
     return image.resize((closest_width, closest_height))
 
 
-def get_image_dimensions(image, should_paint_pixel_func, text_length, counter, margin):
+def get_image_dimensions(image, should_paint_pixel_func, text_length, counter, margin, min_threshold):
     pixels = list(image.getdata())
     colored_pixel_count = get_colored_pixel_count(
-        pixels, should_paint_pixel_func)
+        pixels, should_paint_pixel_func, min_threshold)
     width, height = image.size
     diff = text_length - colored_pixel_count
 
@@ -132,12 +132,12 @@ def get_image_dimensions(image, should_paint_pixel_func, text_length, counter, m
     return colored_pixel_count, width, height, diff
 
 
-def get_colored_pixel_count(pixels, should_paint_pixel_func):
+def get_colored_pixel_count(pixels, should_paint_pixel_func, min_threshold):
     """
     Returns the number of pixels that should not be painted with a character.  A pixel shouldn't be painted if it's brightness falls below the given threshold.
     """
     count = 0
     for pixel in pixels:
-        if should_paint_pixel_func(pixel):
+        if should_paint_pixel_func(pixel, min_threshold):
             count += 1
     return count

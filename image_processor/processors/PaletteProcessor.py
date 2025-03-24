@@ -4,7 +4,7 @@ import math
 from PIL import Image  # type: ignore
 
 from image_processor.Processor import Processor
-from utils.Pixels import get_pixel_brightness, get_pixels
+from utils.Pixels import get_pixel_brightness, get_pixels, brightness_less_than_threshold
 
 
 class PaletteProcessor(Processor):
@@ -12,38 +12,48 @@ class PaletteProcessor(Processor):
         Processes an image by converting each pixel to the closest pixel from a given list.
     """
 
-    def process(self, image, arguments):
+    def __init__(self, image, arguments):
         """
-        Processes an image into an image made up only of colors from a given palette.
+        Initialize the PaletteProcessor.
 
         Args:
             image: The image to process.
             arguments: A list of arguments [palette].  Omitting a value or passing None will use the default value.
                 palette: A list of RGB values to make up the palette. default: [(0, 0, 0), (255, 255, 255)]
+        """
+        palette_string = '[0 0 0,255 255 255]' if arguments[0] is None else arguments[0]
+        self.palette = self._string_to_tuple_list(palette_string)
+        self.image = image
+
+    def process(self):
+        """
+        Processes an image into an image made up only of colors from a given palette.
 
         Returns:
             An image using on the palette
         """
-        palette_string = '[0 0 0,255 255 255]' if arguments[0] is None else arguments[0]
-        palette = self._string_to_tuple_list(palette_string)
         calculated_colors = {}
         logging.info(
-            'processing image using [%s] with arguments - palette: [%s]', __name__, palette)
+            'processing image using [%s] with arguments - palette: [%s]', __name__, self.palette)
 
         new_pixels = []
         new_pixel = None
-        for pixel in get_pixels(image):
+        for pixel in get_pixels(self.image):
             if pixel in calculated_colors:
                 new_pixel = calculated_colors[pixel]
             else:
                 new_pixel = self._find_closest_color(
-                    self, (pixel[0], pixel[1], pixel[2]), palette)
+                    (pixel[0], pixel[1], pixel[2]), self.palette)
                 calculated_colors[pixel] = new_pixel
             new_pixels.append(new_pixel)
-        processed_image = Image.new(image.mode, image.size)
+        processed_image = Image.new(self.image.mode, self.image.size)
         processed_image.putdata(new_pixels)
 
-        return processed_image
+        self.image = processed_image
+
+    def should_paint_pixel(self, pixel, min_threshold):
+        """Method called during image scaling to determine if a pixel will paint a character or skip.  This method needs to be implemented by custom processors."""
+        return brightness_less_than_threshold(self._find_closest_color((pixel[0], pixel[1], pixel[2]), self.palette), min_threshold)
 
     @staticmethod
     def _string_to_tuple_list(s):

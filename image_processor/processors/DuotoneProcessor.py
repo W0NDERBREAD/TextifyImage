@@ -15,7 +15,8 @@ class DuotoneProcessor(Processor):
     """
 
     def __init__(self, image, arguments):
-        """Initialize the DuotoneProcessor.
+        """
+        Initialize the DuotoneProcessor.
 
         Args:
             image: The image to process.
@@ -58,7 +59,7 @@ class DuotoneProcessor(Processor):
 
         self.image = processed_image
 
-    def should_paint_pixel(self, pixel):
+    def should_paint_pixel(self, pixel, min_threshold):
         """Method called during image scaling to determine if a pixel will paint a character or skip.  This method needs to be implemented by custom processors."""
         return self._is_primary_color(pixel, self.threshold)
 

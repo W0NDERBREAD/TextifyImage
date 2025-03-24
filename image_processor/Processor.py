@@ -12,11 +12,11 @@ class Processor:
         """Init method called by TextProcessor to setup processor variables.  This method needs to be implemented by custom processors."""
         pass
 
-    def process(self, image, arguments):
+    def process(self):
         """Method called by TextProcessor to process the given image.  This method needs to be implemented by custom processors."""
         pass
 
-    def should_paint_pixel(self, pixel):
+    def should_paint_pixel(self, pixel, min_threshold):
         """Method called during image scaling to determine if a pixel will paint a character or skip.  This method needs to be implemented by custom processors."""
         pass
 

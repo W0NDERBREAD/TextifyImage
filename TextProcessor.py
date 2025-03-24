@@ -39,7 +39,7 @@ def main():
 
     logging.info(
         "getting image from [%s] and text from [%s]", args.image, args.text)
-    image = Image.open(args.image).convert("RGBA")
+    image = Image.open(args.image).convert("RGB")
     text = get_text(args.text)
     font = (ImageFont.truetype(args.font[0], 15), int(
         args.font[1]), int(args.font[2]))
@@ -87,7 +87,7 @@ def process(image, text, font, margin, char_threshold, background_color, process
 
     if not processor_only:
         processor.image = ImageScaler.scale_image_to_text(
-            text, processor.image, (font[1], font[2]), processor.should_paint_pixel)
+            text, processor.image, (font[1], font[2]), processor.should_paint_pixel, char_threshold)
 
     processor.process()
 
